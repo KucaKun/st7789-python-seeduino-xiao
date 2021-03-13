@@ -1,0 +1,14 @@
+{
+    "python.autoComplete.extraPaths": [
+        "c:\\Users\\Kuca\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.8\\boards\\0x2886\\0x002f",
+        "c:\\Users\\Kuca\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.8\\stubs",
+        "c:\\Users\\Kuca\\AppData\\Roaming\\Code\\User\\globalStorage\\joedevivo.vscode-circuitpython\\bundle\\20210313\\adafruit-circuitpython-bundle-py-20210313\\lib"
+    ],
+    "circuitpython.board.vid": "0x2886",
+    "circuitpython.board.pid": "0x002f",
+    "python.analysis.extraPaths": [
+        "c:\\Users\\Kuca\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.8\\boards\\0x2886\\0x002f",
+        "c:\\Users\\Kuca\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.8\\stubs",
+        null
+    ]
+}

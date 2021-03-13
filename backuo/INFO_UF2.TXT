@@ -1,0 +1,3 @@
+UF2 Bootloader v3.7.0-33-g90ff611-dirty SFHWRO
+Model: Seeeduino XIAO
+Board-ID: SAMD21G18A-XIAO-v0
