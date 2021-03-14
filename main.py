@@ -14,14 +14,7 @@ data.direction = Direction.OUTPUT
 
 dc = DigitalInOut(board.D7) # D7 data command
 dc.direction = Direction.OUTPUT
-
-reset = DigitalInOut(board.D6) 
-reset.direction = Direction.OUTPUT
-sleep(1)
-reset.value = False
-reset.value = True
-sleep(0.150)
-reset.value = False
+sleep(3)
 try:
     def sendCommand(argsTuple):
         first = True
@@ -44,7 +37,6 @@ try:
         # R 0-32
         # G 0-64
         # B 0-32
-        sendCommand((st.RAMWR,))
         dc.value = True
         for i in range(15, -1, -1):
             if i > 10:
@@ -64,26 +56,43 @@ try:
         initCommands = [
             (st.SWRESET,),
             (st.DELAY, 150),
+
             (st.SLPOUT,),
             (st.DELAY, 500),
+
             (st.COLMOD, 0x55),
             (st.DELAY, 10),
+
             (st.MADCTL, 0x00),
+            (st.DELAY, 10),
             (st.CASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
+            (st.DELAY, 10),
             (st.RASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
+            (st.DELAY, 10),
+
             (st.INVON,),
             (st.DELAY, 10),
+
+            (st.NORON,),
+            (st.DELAY, 10),
+
             (st.DISPON,),
             (st.DELAY, 500),
         ]
         for command in initCommands:
             if command[0] == st.DELAY:
+                print("sleep")
                 sleep(command[1]*0.001)
             else:
+                print(command)
                 sendCommand(command)
     
     initializeScreen()
-
+    sendCommand((st.RAMWR,))
+    sleep(0.001)
+    while True:
+        sendPixel(30, 30, 30)
+        sleep(0.0001)
 except Exception as ex:
     sys.print_exception(ex)
     while True:
