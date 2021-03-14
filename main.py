@@ -1,59 +1,95 @@
-import time
-import board
+from time import sleep
+import board, sys
+import st7789 as st
 from digitalio import DigitalInOut, Direction
 
 led = DigitalInOut(board.LED)
 led.direction = Direction.OUTPUT
 
-clock = board.SCL() # D5 clock
-data = board.SDA() # D4 data
-dc = board.DigitalInOut(board.D7) # D7 data command
+clock = DigitalInOut(board.D5) # D5 clock
+clock.direction = Direction.OUTPUT
+
+data = DigitalInOut(board.D4) # D4 data
+data.direction = Direction.OUTPUT
+
+dc = DigitalInOut(board.D7) # D7 data command
 dc.direction = Direction.OUTPUT
 
-
+reset = DigitalInOut(board.D6) 
+reset.direction = Direction.OUTPUT
+sleep(1)
+reset.value = False
+reset.value = True
+sleep(0.150)
+reset.value = False
 try:
-    def send(command):
-        dc.value = False # command
+    def sendCommand(argsTuple):
+        first = True
+        for arg in argsTuple:
+            if first:
+                dc.value = False # command 
+                first = False
+            else:
+                dc.value = True # argument
 
-        for i in range(7, -1, -1):
-            # Send one bit
-            data.value = (command & (1<<i)) != 0
-            
-            # Cycle the clock
-            clock.value = True
-            clock.value = False
+            for i in range(7, -1, -1):
+                # Send one bit
+                data.value = (arg & (1<<i)) != 0
+                
+                # Cycle the clock
+                clock.value = True
+                clock.value = False
 
     def sendPixel(r, g, b):
         # R 0-32
         # G 0-64
         # B 0-32
-        dc.value = True # data
-
-        counter = 0x01 << 16
-        for i in range(16, 0, -1):
+        sendCommand((st.RAMWR,))
+        dc.value = True
+        for i in range(15, -1, -1):
             if i > 10:
                 color = r << 10
             elif i > 5:
                 color = g << 5
             else:
                 color = b
+
             # Send one bit
-            data.value = (color & counter) == 0x01 << i
-            counter = counter >> 1 
-            
+            data.value = (color & (1<<i)) != 0
             # Cycle the clock
             clock.value = True
             clock.value = False
-
-    # rim 0 3Ah db6:4 101
-
+    
+    def initializeScreen():
+        initCommands = [
+            (st.SWRESET,),
+            (st.DELAY, 150),
+            (st.SLPOUT,),
+            (st.DELAY, 500),
+            (st.COLMOD, 0x55),
+            (st.DELAY, 10),
+            (st.MADCTL, 0x00),
+            (st.CASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
+            (st.RASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
+            (st.INVON,),
+            (st.DELAY, 10),
+            (st.DISPON,),
+            (st.DELAY, 500),
+        ]
+        for command in initCommands:
+            if command[0] == st.DELAY:
+                sleep(command[1]*0.001)
+            else:
+                sendCommand(command)
+    
+    initializeScreen()
 
 except Exception as ex:
+    sys.print_exception(ex)
     while True:
-        print(str(ex))
         led.value = True
-        time.sleep(0.1)
+        sleep(0.1)
         led.value = False
-        time.sleep(0.1)
+        sleep(0.1)
 
 
