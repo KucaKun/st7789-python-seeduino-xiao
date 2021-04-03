@@ -3,8 +3,13 @@ import board, sys
 import st7789 as st
 from digitalio import DigitalInOut, Direction
 
+sleep(1)
+reset = DigitalInOut(board.D9) # D9 reset
+reset.switch_to_output(value=True)
+
 led = DigitalInOut(board.LED)
 led.direction = Direction.OUTPUT
+led.value=False
 
 clock = DigitalInOut(board.D5) # D5 clock
 clock.direction = Direction.OUTPUT
@@ -14,7 +19,16 @@ data.direction = Direction.OUTPUT
 
 dc = DigitalInOut(board.D7) # D7 data command
 dc.direction = Direction.OUTPUT
-sleep(3)
+sleep(1)
+
+# sleep(0.150)
+# reset.value = False
+# sleep(0.050)
+# reset.value = True
+# led.value = True
+# sleep(0.150)
+# led.value = False
+
 try:
     def sendCommand(argsTuple):
         first = True
@@ -32,7 +46,6 @@ try:
                 # Cycle the clock
                 clock.value = True
                 clock.value = False
-
     def sendPixel(r, g, b):
         # R 0-32
         # G 0-64
@@ -54,6 +67,9 @@ try:
     
     def initializeScreen():
         initCommands = [
+            (st.SLPOUT,),
+            (st.DELAY, 500),
+
             (st.SWRESET,),
             (st.DELAY, 150),
 
@@ -87,12 +103,14 @@ try:
                 print(command)
                 sendCommand(command)
     
+    led.value = True
     initializeScreen()
+    led.value = False
+
     sendCommand((st.RAMWR,))
     sleep(0.001)
     while True:
         sendPixel(30, 30, 30)
-        sleep(0.0001)
 except Exception as ex:
     sys.print_exception(ex)
     while True:
