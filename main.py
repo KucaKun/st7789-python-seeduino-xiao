@@ -4,113 +4,98 @@ import st7789 as st
 from digitalio import DigitalInOut, Direction
 
 sleep(1)
-reset = DigitalInOut(board.D9) # D9 reset
-reset.switch_to_output(value=True)
 
 led = DigitalInOut(board.LED)
 led.direction = Direction.OUTPUT
 led.value=False
 
-clock = DigitalInOut(board.D5) # D5 clock
-clock.direction = Direction.OUTPUT
-
-data = DigitalInOut(board.D4) # D4 data
-data.direction = Direction.OUTPUT
+spi = board.SPI()
 
 dc = DigitalInOut(board.D7) # D7 data command
 dc.direction = Direction.OUTPUT
 sleep(1)
 
-# sleep(0.150)
-# reset.value = False
-# sleep(0.050)
-# reset.value = True
-# led.value = True
-# sleep(0.150)
-# led.value = False
 
 try:
-    def sendCommand(argsTuple):
-        first = True
-        for arg in argsTuple:
-            if first:
-                dc.value = False # command 
-                first = False
-            else:
-                dc.value = True # argument
+    def sendCommand(data):
+        command = bytearray([data[0]])
+        args = bytearray(data[1:len(data)])
+        print("Command:", data)
 
-            for i in range(7, -1, -1):
-                # Send one bit
-                data.value = (arg & (1<<i)) != 0
-                
-                # Cycle the clock
-                clock.value = True
-                clock.value = False
+        spi.try_lock()
+        dc.value = False # command 
+        sleep(0.1)
+        spi.write(command)
+        dc.value = True # argument
+        sleep(0.1)
+        spi.write(args)
+        spi.unlock()
+        
+
     def sendPixel(r, g, b):
         # R 0-32
         # G 0-64
         # B 0-32
+        spi.try_lock()
         dc.value = True
-        for i in range(15, -1, -1):
-            if i > 10:
-                color = r << 10
-            elif i > 5:
-                color = g << 5
-            else:
-                color = b
-
-            # Send one bit
-            data.value = (color & (1<<i)) != 0
-            # Cycle the clock
-            clock.value = True
-            clock.value = False
+        color = (r << 10) + (g << 5) + b
+        colorHighByte = color >> 8
+        colorLowByte = color & 0x0f
+        spi.write(bytearray([colorLowByte, colorHighByte]))
+        spi.unlock()
     
     def initializeScreen():
         initCommands = [
-            (st.SLPOUT,),
-            (st.DELAY, 500),
+            [st.SLPOUT,],
+            [st.DELAY, 500],
 
-            (st.SWRESET,),
-            (st.DELAY, 150),
+            [st.SWRESET,],
+            [st.DELAY, 150],
+            [st.SWRESET,],
+            [st.DELAY, 150],
 
-            (st.SLPOUT,),
-            (st.DELAY, 500),
+            [st.SLPOUT,],
+            [st.DELAY, 500],
 
-            (st.COLMOD, 0x55),
-            (st.DELAY, 10),
+            [st.COLMOD, 0x55],
+            [st.DELAY, 10],
 
-            (st.MADCTL, 0x00),
-            (st.DELAY, 10),
-            (st.CASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
-            (st.DELAY, 10),
-            (st.RASET, 0x00, 0x00, 0xF0>>8, 0xF0), # 0, 0, 240, 240
-            (st.DELAY, 10),
+            [st.MADCTL, 0x00],
+            [st.DELAY, 10],
+            [st.CASET, 0x00, 0x00, 0xF0>>8, 0xF0], # 0, 0, 240, 240
+            [st.DELAY, 10],
+            [st.RASET, 0x00, 0x00, 0xF0>>8, 0xF0], # 0, 0, 240, 240
+            [st.DELAY, 10],
 
-            (st.INVON,),
-            (st.DELAY, 10),
+            [st.INVON,],
+            [st.DELAY, 10],
 
-            (st.NORON,),
-            (st.DELAY, 10),
+            [st.NORON,],
+            [st.DELAY, 10],
 
-            (st.DISPON,),
-            (st.DELAY, 500),
+            [st.DISPON,],
+            [st.DELAY, 500],
         ]
         for command in initCommands:
             if command[0] == st.DELAY:
-                print("sleep")
-                sleep(command[1]*0.001)
+                delayTime = command[1]*0.001
+                print("Sleep:", delayTime)
+                sleep(delayTime)
             else:
-                print(command)
                 sendCommand(command)
     
     led.value = True
     initializeScreen()
     led.value = False
 
-    sendCommand((st.RAMWR,))
-    sleep(0.001)
+    sendCommand([st.RAMWR])
+    sleep(0.1)
     while True:
-        sendPixel(30, 30, 30)
+        led.value = False
+        #sendPixel(30, 30, 30)
+        sleep(1)
+        initializeScreen()
+        led.value = True
 except Exception as ex:
     sys.print_exception(ex)
     while True:
