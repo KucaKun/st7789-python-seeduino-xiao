@@ -1,107 +1,88 @@
 from time import sleep
-import board, sys
-import st7789 as st
-from digitalio import DigitalInOut, Direction
+import board
+from digitalio import DigitalInOut, Direction, DriveMode
 
-sleep(1)
+
+def hang():
+    while True:
+        sleep(0.1)
+        led.value = True
+        sleep(0.1)
+        led.value = False
+
 
 led = DigitalInOut(board.LED)
 led.direction = Direction.OUTPUT
-led.value=False
+dc = DigitalInOut(board.D7)
+dc.direction = Direction.OUTPUT
+reset = DigitalInOut(board.D6)
+reset.switch_to_output(value=True, drive_mode=DriveMode.PUSH_PULL)
+power = DigitalInOut(board.D5)
+power.direction = Direction.OUTPUT
+power.value = True
+reset.value = False
+sleep(0.1)
+reset.value = True
+sleep(0.3)
 
 spi = board.SPI()
+sleep(0.1)
+led.value = True
+sleep(0.1)
+led.value = False
 
-dc = DigitalInOut(board.D7) # D7 data command
-dc.direction = Direction.OUTPUT
-sleep(1)
+while not spi.try_lock():
+    pass
+spi.configure(baudrate=100)  # Configure SPI for 24MHz
+spi.unlock()
+_INIT_SEQUENCE = (
+    b"\x01\x80\x96",  # _SWRESET and Delay 150ms
+    b"\x11\x80\xFF",  # _SLPOUT and Delay 500ms
+    b"\x3A\x81\x55\x0A",  # _COLMOD and Delay 10ms
+    b"\x36\x01\x08",  # _MADCTL
+    b"\x21\x80\x0A",  # _INVON Hack and Delay 10ms
+    b"\x13\x80\x0A",  # _NORON and Delay 10ms
+    b"\x36\x01\xC0",  # _MADCTL
+    b"\x29\x80\xFF",  # _DISPON and Delay 500ms
+)
 
 
-try:
-    def sendCommand(data):
-        command = bytearray([data[0]])
-        args = bytearray(data[1:len(data)])
-        print("Command:", data)
-
-        spi.try_lock()
-        dc.value = False # command 
-        sleep(0.1)
-        spi.write(command)
-        dc.value = True # argument
-        sleep(0.1)
-        spi.write(args)
-        spi.unlock()
-        
-
-    def sendPixel(r, g, b):
-        # R 0-32
-        # G 0-64
-        # B 0-32
-        spi.try_lock()
-        dc.value = True
-        color = (r << 10) + (g << 5) + b
-        colorHighByte = color >> 8
-        colorLowByte = color & 0x0f
-        spi.write(bytearray([colorLowByte, colorHighByte]))
-        spi.unlock()
-    
-    def initializeScreen():
-        initCommands = [
-            [st.SLPOUT,],
-            [st.DELAY, 500],
-
-            [st.SWRESET,],
-            [st.DELAY, 150],
-            [st.SWRESET,],
-            [st.DELAY, 150],
-
-            [st.SLPOUT,],
-            [st.DELAY, 500],
-
-            [st.COLMOD, 0x55],
-            [st.DELAY, 10],
-
-            [st.MADCTL, 0x00],
-            [st.DELAY, 10],
-            [st.CASET, 0x00, 0x00, 0xF0>>8, 0xF0], # 0, 0, 240, 240
-            [st.DELAY, 10],
-            [st.RASET, 0x00, 0x00, 0xF0>>8, 0xF0], # 0, 0, 240, 240
-            [st.DELAY, 10],
-
-            [st.INVON,],
-            [st.DELAY, 10],
-
-            [st.NORON,],
-            [st.DELAY, 10],
-
-            [st.DISPON,],
-            [st.DELAY, 500],
-        ]
-        for command in initCommands:
-            if command[0] == st.DELAY:
-                delayTime = command[1]*0.001
-                print("Sleep:", delayTime)
-                sleep(delayTime)
-            else:
-                sendCommand(command)
-    
-    led.value = True
-    initializeScreen()
-    led.value = False
-
-    sendCommand([st.RAMWR])
+def sendCommand(data):
+    command = bytearray(data[0])
+    args = bytearray(data[1:len(data)])
+    no_args = False
+    if args[0] == 0x80:
+        sleep(args[1] / 1000)
+        no_args = True
+    spi.try_lock()
+    dc.value = False  # command
     sleep(0.1)
-    while True:
-        led.value = False
-        #sendPixel(30, 30, 30)
-        sleep(1)
-        initializeScreen()
-        led.value = True
-except Exception as ex:
-    sys.print_exception(ex)
-    while True:
-        led.value = True
-        sleep(0.1)
-        led.value = False
-        sleep(0.1)
+    spi.write(command)
+    dc.value = True  # argument
+    sleep(0.1)
+    if not no_args:
+        spi.write(args)
+    spi.unlock()
 
 
+def sendPixel(r, g, b):
+    # R 0-32
+    # G 0-64
+    # B 0-32
+    spi.try_lock()
+    dc.value = True
+    color = (r << 10) + (g << 5) + b
+    colorHighByte = color >> 8
+    colorLowByte = color & 0x0f
+    spi.write(bytearray([colorLowByte]))
+    spi.write(bytearray([colorHighByte]))
+    spi.unlock()
+
+
+for cmd in _INIT_SEQUENCE:
+    sendCommand(cmd)
+
+for i in range(31):
+    sendPixel(i, i, i)
+
+hang()
